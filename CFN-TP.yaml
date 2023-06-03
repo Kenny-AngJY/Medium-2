@@ -1,0 +1,204 @@
+---
+Description: >
+  "Root CloudFormation Template which creates:
+    - IAM Role for Lambda Function
+    - IAM Role for scheduler
+    - Lambda Function
+    - Schedule
+    - Events::Rule
+    - LambdaPermission for Events::Rule
+    - SNS?
+  "
+
+Parameters:
+
+  # Email:
+  #   Description: >
+  #     Email address to receive SNS notification
+  #   Type: String
+
+  LambdaFunctionName:
+    Description: >
+      Name of the Lambda Function
+    Type: String
+    Default: CFN_TerminationProtection
+
+  S3BucketNameLambdaFunction:
+    Description: >
+      Name of S3 Bucket (where the .zip python script is stored)
+    Type: String
+    # Default: kennys-wonderful-s3-bucket
+    ConstraintDescription: https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
+
+  S3ObjectKeyLambdaFunction:
+    Description: >
+      If any, add the prefix in front of the name of the .zip file
+    Type: String
+    Default: CFN-TP/cloudformation_TP.zip
+
+Resources:
+
+  LambdaIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: IAM Role for Lambda function (CFN_Stack_TerminationProtection)
+      RoleName: CFN_Stack_TerminationProtection_IAMRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      # ManagedPolicyArns:
+      #   - arn:aws:iam::aws:policy/AmazonSNSFullAccess
+      Path: /
+      Policies: ### Adds or updates an inline policy document that is embedded in the specified IAM role.
+        - PolicyName: CFN_Stack_TP_InlinePolicy
+          PolicyDocument: {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "logs:CreateLogGroup",
+                  "logs:CreateLogStream",
+                  "logs:PutLogEvents"
+                ],
+                "Resource": {
+                  "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+                }
+              },
+              {
+                "Sid": "AllowedCloudformationActions",
+                "Effect": "Allow",
+                "Action": [
+                  "cloudformation:ListStacks",
+                  "cloudformation:UpdateTerminationProtection",
+                  "cloudformation:DescribeStacks"
+                ],
+                "Resource": {
+                  "Fn::Sub": "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/*"
+                }
+              }
+            ]
+          }
+      Tags: 
+        - Key: Name
+          Value: CFN_Stack_TerminationProtection
+
+
+  ScheduleIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: IAM Role for Scheduler Schedule (CF TP)
+      RoleName: EventBridge_Scheduler_Lambda_TP
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - scheduler.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref "AWS::AccountId"
+      Path: /
+      Policies: 
+        - PolicyName: EventBridge_Scheduler_Lambda_TP_InlinePolicy
+          PolicyDocument: {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "lambda:InvokeFunction"
+                ],
+                "Resource": [
+                  "Fn::Sub": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaFunctionName}"
+                ]
+              }
+            ]
+          }
+          
+      Tags: 
+        - Key: Name
+          Value: CloudFormation_TerminationProtection
+
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties: 
+      FunctionName: !Ref LambdaFunctionName
+      Description: Lambda Function for CFN_TerminationProtection
+      Code: 
+        S3Bucket: !Ref S3BucketNameLambdaFunction
+        S3Key: !Ref S3ObjectKeyLambdaFunction
+      Handler: cloudformation_TP.lambda_handler
+      # ReservedConcurrentExecutions: 10
+      Role: !GetAtt LambdaIAMRole.Arn
+      Runtime: python3.10
+      Tags: 
+        - Key: Name
+          Value: CloudFormation_TerminationProtection
+      Timeout: 300
+
+
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties: 
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt MyEventRules.Arn
+
+
+  MySchedulerSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties: 
+      Description: Once a day
+      # EndDate: String
+      FlexibleTimeWindow: 
+        MaximumWindowInMinutes: 1
+        Mode: FLEXIBLE
+      # GroupName: String
+      # KmsKeyArn: String
+      Name: Daily_Invoke_CFN_TP
+      ScheduleExpression: cron(0 8 * * ? *)
+      # ScheduleExpressionTimezone: String
+      # StartDate: String
+      State: ENABLED # ENABLED | DISABLED
+      Target: 
+        Arn: !GetAtt LambdaFunction.Arn
+        Input: '{ "source": "aws.eventbridge_scheduler_schedules_CFN_TerminationProtection" }'
+        RoleArn: !GetAtt ScheduleIAMRole.Arn
+
+
+  MyEventRules:
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: Rule for newly created stacks
+      # EventBusName: default # If you omit this, the default event bus is used.
+      EventPattern: {
+        "source": ["aws.cloudformation"],
+        "detail-type": ["CloudFormation Stack Status Change"],
+        "detail": {
+          "status-details": {
+            "status": ["CREATE_IN_PROGRESS"]
+          }
+        }
+      }
+      Name: EventBridgeRule_CreateStack
+      # RoleArn: String
+      # ScheduleExpression: String
+      State: ENABLED # DISABLED | ENABLED
+      Targets: 
+        - Arn: !GetAtt LambdaFunction.Arn
+          Id: TargetFunctionV1
+          # Input: String
+          # InputPath: String
+          # RoleArn: String
