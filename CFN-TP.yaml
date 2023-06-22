@@ -7,7 +7,6 @@ Description: >
     - Schedule
     - Events::Rule
     - LambdaPermission for Events::Rule
-    - SNS?
   "
 
 Parameters:
@@ -68,7 +67,7 @@ Resources:
                   "logs:PutLogEvents"
                 ],
                 "Resource": {
-                  "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+                  "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${LambdaFunctionName}:*"
                 }
               },
               {

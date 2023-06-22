@@ -1,4 +1,8 @@
 import boto3
+import logging
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 cf_client = boto3.client('cloudformation')
 
@@ -7,19 +11,19 @@ def describe_update_stacks(stack_name):
     response = cf_client.describe_stacks(StackName=stack_name)
     stack_dict = response["Stacks"][0]
     protected = stack_dict.get("EnableTerminationProtection")
-    print(f"{stack_name}'s termination protection is {protected}.")
+    logger.info(f"{stack_name}'s termination protection is {protected}.")
      
     if not protected:
         response = cf_client.update_termination_protection(
             EnableTerminationProtection = True,
             StackName = stack_name
         )
-        print(f"Termination protection for {stack_name} is now activated.")
+        logger.info(f"Termination protection for {stack_name} is now activated.")
 
 
 def lambda_handler(event, context):
     
-    print(event)
+    logger.info(event)
 
     StackStatusFilter = ['CREATE_IN_PROGRESS','CREATE_COMPLETE','REVIEW_IN_PROGRESS',\
                         'ROLLBACK_COMPLETE','ROLLBACK_FAILED','ROLLBACK_IN_PROGRESS',\
@@ -51,7 +55,7 @@ def lambda_handler(event, context):
         
         if cloudformation_status in StackStatusFilter:
             
-            print(f"Check Cloudformation stack: {event['resources']} has a status of {cloudformation_status}.")
+            logger.info(f"Check Cloudformation stack: {event['resources']} has a status of {cloudformation_status}.")
             stack_arn = event["resources"][0]
             find_first_slash = stack_arn.find("/") + 1
             find_second_slash = stack_arn.find("/", find_first_slash)
