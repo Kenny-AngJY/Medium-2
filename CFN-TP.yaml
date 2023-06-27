@@ -133,7 +133,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties: 
       FunctionName: !Ref LambdaFunctionName
-      Description: Lambda Function for CFN_TerminationProtection
+      Description: Enforce Termination Protection on CloudFormation Stack
       Code: 
         S3Bucket: !Ref S3BucketNameLambdaFunction
         S3Key: !Ref S3ObjectKeyLambdaFunction
