@@ -79,8 +79,8 @@ resource "aws_lambda_function" "my_lambda_function" {
   role          = aws_iam_role.Lambda_Function_Role.arn
   handler       = "cloudformation_TP.lambda_handler"
   timeout       = 300
-  runtime = "python3.10"
-  tags    = local.common_tags
+  runtime       = "python3.10"
+  tags          = local.common_tags
 }
 
 
@@ -117,7 +117,7 @@ resource "aws_cloudwatch_event_rule" "event_bridge_rule" {
       }
     }
   })
-  tags    = local.common_tags
+  tags = local.common_tags
 }
 
 resource "aws_cloudwatch_event_target" "lambda" {
