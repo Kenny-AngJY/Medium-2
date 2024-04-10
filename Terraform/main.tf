@@ -11,8 +11,18 @@ locals {
 resource "aws_iam_role" "Lambda_Function_Role" {
   name = "Lambda_Function_Role_CFN_TP"
   path = "/"
-  # assume_role_policy = data.aws_iam_policy_document.Lambda_assume_role_policy.json
-  assume_role_policy = data.aws_iam_policy_document.assume_role_policy[1].json
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      },
+    ]
+  })
 
   inline_policy {
     name = "CFN_Stack_TP_InlinePolicy"
@@ -36,7 +46,6 @@ resource "aws_iam_role" "Lambda_Function_Role" {
             "cloudformation:UpdateTerminationProtection",
             "cloudformation:DescribeStacks"
           ],
-          # "Resource": "*"
           "Resource" : "arn:aws:cloudformation:${local.region_account_id}:stack/*"
         }
       ]
@@ -49,8 +58,19 @@ resource "aws_iam_role" "Lambda_Function_Role" {
 resource "aws_iam_role" "ScheduleIAMRole" {
   name = "EventBridge_Scheduler_Lambda_TP"
   path = "/"
-  # assume_role_policy = data.aws_iam_policy_document.Scheduler_assume_role_policy.json
-  assume_role_policy = data.aws_iam_policy_document.assume_role_policy[0].json
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          Service = "scheduler.amazonaws.com"
+        }
+      },
+    ]
+  })
 
   inline_policy {
     name = "my_inline_policy"
@@ -71,18 +91,16 @@ resource "aws_iam_role" "ScheduleIAMRole" {
 }
 
 resource "aws_lambda_function" "my_lambda_function" {
-  # If the file is not in the current working directory you will need to include a
-  # path.module in the filename.
+  # If the file is not in the current working directory you will need to include a path.module in the filename.
   filename      = "cloudformation_TP.zip"
   function_name = var.LambdaFunctionName
   description   = "Enforce Termination Protection on CloudFormation Stack"
   role          = aws_iam_role.Lambda_Function_Role.arn
   handler       = "cloudformation_TP.lambda_handler"
   timeout       = 300
-  runtime       = "python3.10"
+  runtime       = "python3.12"
   tags          = local.common_tags
 }
-
 
 resource "aws_scheduler_schedule" "my_scheduler_schedule" {
   name       = "Daily_Invoke_CFN_TP"
@@ -106,8 +124,8 @@ resource "aws_scheduler_schedule" "my_scheduler_schedule" {
 
 
 resource "aws_cloudwatch_event_rule" "event_bridge_rule" {
-  name        = "capture-aws-sign-in"
-  description = "Capture each AWS Console Sign In"
+  name        = "CloudFormation-stack-creation"
+  description = "Capture each CloudFormation stack creation"
   event_pattern = jsonencode({
     "source" : ["aws.cloudformation"],
     "detail-type" : ["CloudFormation Stack Status Change"],
