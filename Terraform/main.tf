@@ -1,8 +1,8 @@
-
 locals {
   common_tags = {
     Name        = "CFN_Termination_Protection"
     CreatedFrom = "Terraform"
+    description = "Kenny Medium Article"
   }
   region_account_id = "${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}"
 }
@@ -51,9 +51,7 @@ resource "aws_iam_role" "Lambda_Function_Role" {
       ]
     })
   }
-  tags = local.common_tags
 }
-
 
 resource "aws_iam_role" "ScheduleIAMRole" {
   name = "EventBridge_Scheduler_Lambda_TP"
@@ -87,7 +85,6 @@ resource "aws_iam_role" "ScheduleIAMRole" {
       ]
     })
   }
-  tags = local.common_tags
 }
 
 resource "aws_lambda_function" "my_lambda_function" {
@@ -99,7 +96,6 @@ resource "aws_lambda_function" "my_lambda_function" {
   handler       = "cloudformation_TP.lambda_handler"
   timeout       = 300
   runtime       = "python3.12"
-  tags          = local.common_tags
 }
 
 resource "aws_scheduler_schedule" "my_scheduler_schedule" {
@@ -135,7 +131,6 @@ resource "aws_cloudwatch_event_rule" "event_bridge_rule" {
       }
     }
   })
-  tags = local.common_tags
 }
 
 resource "aws_cloudwatch_event_target" "lambda" {
