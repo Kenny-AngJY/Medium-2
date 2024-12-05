@@ -23,34 +23,35 @@ resource "aws_iam_role" "Lambda_Function_Role" {
       },
     ]
   })
+}
 
-  inline_policy {
-    name = "CFN_Stack_TP_InlinePolicy"
-    policy = jsonencode({
-      Version = "2012-10-17"
-      Statement = [
-        {
-          "Effect" : "Allow",
-          "Action" : [
-            "logs:CreateLogGroup",
-            "logs:CreateLogStream",
-            "logs:PutLogEvents"
-          ],
-          "Resource" : "arn:aws:logs:${local.region_account_id}:log-group:/aws/lambda/${var.LambdaFunctionName}:*"
-        },
-        {
-          "Sid" : "AllowedCloudformationActions",
-          "Effect" : "Allow",
-          "Action" : [
-            "cloudformation:ListStacks",
-            "cloudformation:UpdateTerminationProtection",
-            "cloudformation:DescribeStacks"
-          ],
-          "Resource" : "arn:aws:cloudformation:${local.region_account_id}:stack/*"
-        }
-      ]
-    })
-  }
+resource "aws_iam_role_policy" "Lambda_Function_Role_InlinePolicy" {
+  name = "CFN_Stack_TP_InlinePolicy"
+  role = aws_iam_role.Lambda_Function_Role.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource" : "arn:aws:logs:${local.region_account_id}:log-group:/aws/lambda/${var.LambdaFunctionName}:*"
+      },
+      {
+        "Sid" : "AllowedCloudformationActions",
+        "Effect" : "Allow",
+        "Action" : [
+          "cloudformation:ListStacks",
+          "cloudformation:UpdateTerminationProtection",
+          "cloudformation:DescribeStacks"
+        ],
+        "Resource" : "arn:aws:cloudformation:${local.region_account_id}:stack/*"
+      }
+    ]
+  })
 }
 
 resource "aws_iam_role" "ScheduleIAMRole" {
@@ -69,22 +70,23 @@ resource "aws_iam_role" "ScheduleIAMRole" {
       },
     ]
   })
+}
 
-  inline_policy {
-    name = "my_inline_policy"
-    policy = jsonencode({
-      Version = "2012-10-17"
-      Statement = [
-        {
-          "Effect" : "Allow",
-          "Action" : [
-            "lambda:InvokeFunction"
-          ],
-          "Resource" : "arn:aws:lambda:${local.region_account_id}:function:${var.LambdaFunctionName}"
-        }
-      ]
-    })
-  }
+resource "aws_iam_role_policy" "ScheduleIAMRole_InlinePolicy" {
+  name = "my_inline_policy"
+  role = aws_iam_role.ScheduleIAMRole.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "lambda:InvokeFunction"
+        ],
+        "Resource" : "arn:aws:lambda:${local.region_account_id}:function:${var.LambdaFunctionName}"
+      }
+    ]
+  })
 }
 
 resource "aws_lambda_function" "my_lambda_function" {
