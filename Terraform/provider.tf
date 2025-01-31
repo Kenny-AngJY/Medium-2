@@ -6,6 +6,13 @@ terraform {
     }
   }
   required_version = "~> 1.10"
+  # backend "s3" {
+  #   bucket = "xxxx"
+  #   key = "last-accessed.tfstate"
+  #   region = "ap-southeast-1"
+  #   encrypt = true
+  #   use_lockfile = true # S3 native locking
+  # }
 }
 
 provider "aws" {
